@@ -1,0 +1,50 @@
+---
+title: "Untitled"
+author: "Angie Boysen"
+date: "July 14, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+require(graphics); require(grDevices)
+library(Hmisc)
+library(gtools)
+library(cowplot)
+require(RColorBrewer)
+library(xlsx)
+library(readr)
+```
+
+##Exploring the HILIC bacteria samples
+
+#Import data
+
+```{r}
+setwd("M:/Summer_2016_metabolites/Methods_Paper_Samples/qc")
+
+mydata.overloaded <- read_csv("M:/Summer_2016_metabolites/Methods_Paper_Samples/qc/QC.output.new.Bacteria_HILIC_160613_1to2_update_akb.csv")
+mydata.overloaded <-mydata.overloaded[,2:11]
+mydata <- mydata.overloaded %>% filter(!grepl("overload",Notes))
+glimpse(mydata)
+```
+
+#Break Up the Names
+```{r}
+mydata_new <- mydata %>% separate(Replicate.Name, c("runData","type","ID","other1","other2"),"_")
+```
+
+
+#Normalize
+```{r}
+normalizeR <- function(x,IS.key = "D-Methionine"){
+     x$AreaNorm <- x$Area/x$Area[which(x$Compound.Name==IS.key)]
+     x
+} 
+```
+
+
