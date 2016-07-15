@@ -18,6 +18,7 @@ library(cowplot)
 require(RColorBrewer)
 library(xlsx)
 library(readr)
+library(plotly)
 ```
 
 ##Exploring the HILIC bacteria samples
@@ -25,26 +26,25 @@ library(readr)
 #Import data
 
 ```{r}
-setwd("M:/Summer_2016_metabolites/Methods_Paper_Samples/qc")
-
-mydata.overloaded <- read_csv("M:/Summer_2016_metabolites/Methods_Paper_Samples/qc/QC.output.new.Bacteria_HILIC_160613_1to2_update_akb.csv")
+mydata.overloaded <- read_csv("./QC.output.new.Bacteria_HILIC_160613_1to2_update_akb.csv")
 mydata.overloaded <-mydata.overloaded[,2:11]
-mydata <- mydata.overloaded %>% filter(!grepl("overload",Notes))
+mydata <- mydata.overloaded
 glimpse(mydata)
-```
-
-#Break Up the Names
-```{r}
-mydata_new <- mydata %>% separate(Replicate.Name, c("runData","type","ID","other1","other2"),"_")
 ```
 
 
 #Normalize
 ```{r}
-normalizeR <- function(x,IS.key = "D-Methionine"){
-     x$AreaNorm <- x$Area/x$Area[which(x$Compound.Name==IS.key)]
-     x
-} 
+wArea<- mydata %>%
+     select(Replicate.Name,Compound.Name,Area) %>%
+     spread(key=Replicate.Name, value=Area) 
+wArea.norm <- apply(1,function(x) x/wArea[which(wArea$Compound.Name=="D-Methionine"),-1])
+
+```
+
+#Break Up the Names
+```{r}
+mydata_new <- mydata %>% separate(Replicate.Name, c("runData","type","ID","other1","other2"),"_")
 ```
 
 
