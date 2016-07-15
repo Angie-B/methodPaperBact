@@ -32,19 +32,27 @@ mydata <- mydata.overloaded
 glimpse(mydata)
 ```
 
+# Here's an interactive plot
+```{r}
+p <- ggplot(mydata, aes(x=Retention.Time, y=Area, colour = Replicate.Name)) + geom_point(aes(text = paste(Compound.Name)), alpha = 0.4) 
+ggplotly(p)
+```
+
 
 #Normalize
-```{r}
+This is currently broken
+```{r echo=FALSE, execute=FALSE}
 wArea<- mydata %>%
      select(Replicate.Name,Compound.Name,Area) %>%
      spread(key=Replicate.Name, value=Area) 
-wArea.norm <- apply(1,function(x) x/wArea[which(wArea$Compound.Name=="D-Methionine"),-1])
+wArea.norm <- wArea[,-1] %>% apply(1,function(x) x/wArea[which(wArea$Compound.Name=="D-Methionine"),-1])
 
 ```
 
 #Break Up the Names
-```{r}
-mydata_new <- mydata %>% separate(Replicate.Name, c("runData","type","ID","other1","other2"),"_")
+Also currently broken
+```{r echo=FALSE}
+mydata_new <- mydata %>% separate(Replicate.Name, c("runData","type","ID","other1","other2","other3"),"_")
 ```
 
 
