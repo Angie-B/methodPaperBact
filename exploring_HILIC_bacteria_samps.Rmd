@@ -19,6 +19,7 @@ require(RColorBrewer)
 library(xlsx)
 library(readr)
 library(plotly)
+library(stringr)
 ```
 
 ##Exploring the HILIC bacteria samples
@@ -52,16 +53,43 @@ wArea.norm <- wArea[,-1] %>%
 wArea.norm
 ```
 
-##Normalize to optical density
-```{r}
 
-```
+#Fix and Break Up the Names
+Name structure must be:
+Date_type_ID.duplicateID_dilution_injectionReplicate#
 
-
-#Break Up the Names
-Also currently broken
 ```{r echo=FALSE}
-mydata_new <- mydata %>% separate(Replicate.Name, c("runData","type","ID","other1","other2","other3"),"_")
+wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Blk_6-13 Blank")] <- "160613_Blk_FltBlk-0613_1to100"
+wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_1")] <- "160613_Poo_Poo-0613_1to100_1"
+wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_2")] <- "160613_Poo_Poo-0613_1to100_2"
+wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_3")] <- "160613_Poo_Poo-0613_1to100_3"
+
+wArea.norm <- wArea.norm %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("Aq_",""))
+wArea.norm <- wArea.norm %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("-gly","gly"))
+
+
+mydata_new <- wArea.norm %>% separate(Replicate.Name, 
+                                      c("runDate",
+                                        "type","ID.duplicate",
+                                        "dilution","injReplicate"),"_") %>%
+     mutate(RunName = wArea.norm$Replicate.Name)
+mydata_new
 ```
+
+##Normalize to optical density
+Incomplete
+```{r echo=FALSE, execute=FALSE}
+dens <- read.xlsx("M:/Summer_2016_metabolites/Methods_Paper_Samples/Bacteria_Skyline_Samples/Cultures_Extraction_Log.xlsx", 1)  # read first sheet
+
+dens.order <- order(dens$Vial.ID)[1:16]
+
+new.df$OD <- as.numeric(as.character(dens$OD.1.10..at.Harvest.time[dens.order]))
+
+OD.Norm.df <- apply(new.df,2,function(x) x/new.df[,"OD"])
+```
+
+
 
 
