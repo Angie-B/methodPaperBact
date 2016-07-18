@@ -5,24 +5,26 @@
 
 ## Load needed libraries
 library("plyr")
+library("dplyr")
 library("reshape2")
+library("readr")
 
 ## Set the parameters for the QC ----------------------------------------
-setwd("M:/Summer_2016_metabolites/Methods_Paper_Samples/Eddy_Skyline_Samples/Skyline_finished_integrations")
+setwd("M:/Summer_2016_metabolites/Methods_Paper_Samples/Bacteria_Skyline_Samples/")
 
-filename <- "Eddy_Cyano_TQS_processed_7dehydrocholesterol.csv"
+filename <- "Bacteria_HILIC_160613_1to2_update2.csv"
 areas.raw <- read.csv(filename ,header=TRUE, comment.char="", as.is=TRUE)
-masterfile <- "CYANO_MasterList_Summer2016.csv"
+masterfile <- "../HILIC_MasterList_Summer2016.csv"
 master <- read.csv(masterfile)
 
 ## pick overload value (suggestion: 1e8)
 max.height <- 1.0e8
 ## pick the minimum height to be counted as a 'real' peak
 ## (suggestions: HILIC - 1000, cyano - 100)
-min.height <- 100
+min.height <- 1000
 ## pick RT flexibility 
 ## (suggeestions: +/- 0.4 min for HILIC, +/- 0.2 min for cyano)
-RT.flex <- 0.2
+RT.flex <- 0.4
 ## pick IR flexibility (suggestion: +/- 30%)
 IR.flex <- 0.3
 ## pick how big of a signal the samples need to have in comparison
@@ -30,7 +32,7 @@ IR.flex <- 0.3
 blk.thresh <- 0.3
 ## pick the value that will be the acceptable signal to noise ratio
 ## (suggestion maybe 5 for cyano and 4 for HILIC?  (broader peaks make for more background))
-SN.thresh <- 5
+SN.thresh <- 4
 
 ## ID run types ---------------------------
 ## Standards (std), Samples (smp), Blanks (blk), Pooled (poo)
@@ -206,6 +208,9 @@ output$Height <- Pk.Height
 output$IR <- IR
 output$S.N <- S.N
 
+## Add a column for the unmodified area - we won't touch this during QC
+output$rawArea <- output$Area
+
 ## if the retention time is bad then delete the area
 for (i in 1:nrow(output)){
      if (output$Notes[i]!=""){
@@ -303,6 +308,7 @@ blank.data$Compound.Name <- blank.data$Precursor.Ion.Name
 blank.data$Notes <- rep("Blank used for comparison",nrow(blank.data))
 blank.data$IR <- rep(NA,nrow(blank.data))
 blank.data$S.N <- (blank.data$Area+blank.data$Background)/blank.data$Background
+blank.data$rawArea <- blank.data$Area
 
 final.output <- rbind(output, blank.data[,colnames(output)])
 
@@ -315,7 +321,7 @@ comment.text <- paste("# Hello! welcome to your data! ","Overload height: ",
                       "S/N threshold: " , SN.thresh, ". ",
                       "Minimum peak height: ", min.height, ". ",
                       "Processed on: ", Sys.time(), sep="")
-new.filename <- paste("QC_output2",filename,sep="")
+new.filename <- paste("QC_output3",filename,sep="")
 con <- file(new.filename, open="wt")
 writeLines(paste(comment.text), con)
 write.csv(final.output, con)
