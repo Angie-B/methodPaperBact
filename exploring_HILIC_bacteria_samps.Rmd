@@ -33,6 +33,21 @@ mydata <- mydata.overloaded
 glimpse(mydata)
 ```
 
+##Rename Runs
+```{r}
+mydata$Replicate.Name[which(mydata$Replicate.Name == "160613_Blk_6-13 Blank")] <- "160613_Blk_FltBlk-0613_1to100"
+mydata$Replicate.Name[which(mydata$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_1")] <- "160613_Poo_Poo-0613_1to100_1"
+mydata$Replicate.Name[which(mydata$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_2")] <- "160613_Poo_Poo-0613_1to100_2"
+mydata$Replicate.Name[which(mydata$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_3")] <- "160613_Poo_Poo-0613_1to100_3"
+
+mydata <- mydata %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("Aq_",""))
+mydata <- mydata %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("-gly","gly"))
+mydata
+```
+
+
 # Here's an interactive plot
 ```{r}
 p <- ggplot(mydata, aes(x=Retention.Time, y=Area, colour = Replicate.Name)) + geom_point(aes(text = paste(Compound.Name)), alpha = 0.4) 
@@ -54,28 +69,19 @@ wArea.norm
 ```
 
 
-#Fix and Break Up the Names
+#Break Up the Names
 Name structure must be:
 Date_type_ID.duplicateID_dilution_injectionReplicate#
 
 ```{r echo=FALSE}
-wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Blk_6-13 Blank")] <- "160613_Blk_FltBlk-0613_1to100"
-wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_1")] <- "160613_Poo_Poo-0613_1to100_1"
-wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_2")] <- "160613_Poo_Poo-0613_1to100_2"
-wArea.norm$Replicate.Name[which(wArea.norm$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_3")] <- "160613_Poo_Poo-0613_1to100_3"
-
-wArea.norm <- wArea.norm %>% mutate(Replicate.Name = Replicate.Name %>%
-                                str_replace("Aq_",""))
-wArea.norm <- wArea.norm %>% mutate(Replicate.Name = Replicate.Name %>%
-                                str_replace("-gly","gly"))
-
-
 mydata_new <- wArea.norm %>% separate(Replicate.Name, 
                                       c("runDate",
                                         "type","ID.duplicate",
                                         "dilution","injReplicate"),"_") %>%
-     mutate(RunName = wArea.norm$Replicate.Name)
-mydata_new
+     mutate(Run.Cmpd = paste(wArea.norm$Replicate.Name,wArea.norm$Compound))
+mydata <- mydata %>% mutate(Run.Cmpd = paste(Replicate.Name, Compound.Name))
+
+dat <- full_join(mydata, mydata_new)
 ```
 
 ##Normalize to optical density
