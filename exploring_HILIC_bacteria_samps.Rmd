@@ -9,7 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(ggplot2)
-library(dplyr)
 library(tidyr)
 require(graphics); require(grDevices)
 library(Hmisc)
@@ -21,13 +20,14 @@ library(readr)
 library(plotly)
 library(stringr)
 library(GGally)
+library(dplyr)
 ```
 
 ##Exploring the HILIC bacteria samples
 
 #Import data
 
-```{r}
+```{r echo=FALSE}
 mydata.overloaded <- read_csv("./QC_output_Bacteria_HILIC_160718_1to100_AKB.csv")
 mydata.overloaded <-mydata.overloaded[,2:11]
 mydata <- mydata.overloaded
@@ -35,7 +35,7 @@ glimpse(mydata)
 ```
 
 ##Rename Runs
-```{r}
+```{r echo=FALSE}
 mydata$Replicate.Name[which(mydata$Replicate.Name == "160613_Blk_6-13 Blank")] <- "160613_Blk_FltBlk-0613_1to100"
 mydata$Replicate.Name[which(mydata$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_1")] <- "160613_Poo_Poo-0613_1to100_1"
 mydata$Replicate.Name[which(mydata$Replicate.Name == "160613_Poo_6-13 Aq Extracts_1to100_2")] <- "160613_Poo_Poo-0613_1to100_2"
@@ -88,14 +88,31 @@ glimpse(dat)
 ```
 
 ##Check the similarity of the pooled runs
-```{r}
+```{r echo=FALSE}
 pool.dat <- dat %>% filter(type == "Poo")
 pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
-pool.dat <- pool.dat %>% select(Compound.Name, injReplicate, Area_Norm) %>% 
+
+pool.stats <-  pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(Area_Norm, na.rm=T), 
+                sd = sd(Area_Norm, na.rm=T), rsd = sd/m)
+
+p <- ggplot(pool.stats, aes(x=rsd, text = Compound.Name)) + geom_histogram(binwidth = 0.05) + ggtitle("Relative Standard Deviation for 54 compounds in the pooled samples")
+ggplotly(p)
+
+wide.pool.dat <- pool.dat %>% 
+     select(Compound.Name, injReplicate, Area_Norm) %>% 
      spread(key = injReplicate, value = Area_Norm)
 
 
-p4<- ggplot(pool.dat, aes(x=`1`, xend=`2`, y=`3`, yend=`3` , text=Compound.Name)) + geom_segment() + geom_abline(slope = 1, intercept = 0) + scale_x_log10() + scale_y_log10() + xlab("Pooled replicates 1 and 2") + ylab("Pooled replicate 3")
+p4<- ggplot(wide.pool.dat, aes(x=`1`, xend=`2`, 
+                          y=`3`, yend=`3` , 
+                          text=Compound.Name)) + 
+     geom_segment() + geom_abline(slope = 1, intercept = 0) + 
+     scale_x_log10() + scale_y_log10() + 
+     xlab("Pooled replicates 1 and 2") + 
+     ylab("Pooled replicate 3") + 
+     ggtitle("Replicate injections of the pooled sample")
 ggplotly(p4)
 ```
 
