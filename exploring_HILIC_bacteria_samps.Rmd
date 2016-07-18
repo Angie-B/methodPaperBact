@@ -20,6 +20,7 @@ library(xlsx)
 library(readr)
 library(plotly)
 library(stringr)
+library(GGally)
 ```
 
 ##Exploring the HILIC bacteria samples
@@ -50,7 +51,7 @@ mydata
 
 # Here's an interactive plot
 ```{r}
-p <- ggplot(mydata, aes(x=Retention.Time, y=Area, colour = Replicate.Name)) + geom_point(aes(text = paste(Compound.Name)), alpha = 0.4) 
+p <- ggplot(mydata, aes(x=Retention.Time, y=Area, colour = Compound.Name)) + geom_point(aes(text = paste(Replicate.Name)), alpha = 0.4) + scale_y_log10()
 ggplotly(p)
 ```
 
@@ -82,11 +83,26 @@ mydata_new <- wArea.norm %>% separate(Replicate.Name,
 mydata <- mydata %>% mutate(Run.Cmpd = paste(Replicate.Name, Compound.Name))
 
 dat <- full_join(mydata, mydata_new)
+dat <- dat %>% select(-Compound,-rawArea)
+glimpse(dat)
 ```
+
+##Check the similarity of the pooled runs
+```{r}
+pool.dat <- dat %>% filter(type == "Poo")
+pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
+pool.dat <- pool.dat %>% select(Compound.Name, injReplicate, Area_Norm) %>% 
+     spread(key = injReplicate, value = Area_Norm)
+
+
+p4<- ggplot(pool.dat, aes(x=`1`, xend=`2`, y=`3`, yend=`3` , text=Compound.Name)) + geom_segment() + geom_abline(slope = 1, intercept = 0) + scale_x_log10() + scale_y_log10() + xlab("Pooled replicates 1 and 2") + ylab("Pooled replicate 3")
+ggplotly(p4)
+```
+
 
 ##Normalize to optical density
 Incomplete
-```{r echo=FALSE, execute=FALSE}
+```{r echo=FALSE, eval=FALSE}
 dens <- read.xlsx("M:/Summer_2016_metabolites/Methods_Paper_Samples/Bacteria_Skyline_Samples/Cultures_Extraction_Log.xlsx", 1)  # read first sheet
 
 dens.order <- order(dens$Vial.ID)[1:16]
