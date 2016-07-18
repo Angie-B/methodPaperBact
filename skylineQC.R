@@ -12,7 +12,7 @@ library("readr")
 ## Set the parameters for the QC ----------------------------------------
 setwd("M:/Summer_2016_metabolites/Methods_Paper_Samples/Bacteria_Skyline_Samples/")
 
-filename <- "Bacteria_HILIC_160613_1to2_update2.csv"
+filename <- "Bacteria_HILIC_160718_1to100_update.csv"
 areas.raw <- read.csv(filename ,header=TRUE, comment.char="", as.is=TRUE)
 masterfile <- "../HILIC_MasterList_Summer2016.csv"
 master <- read.csv(masterfile)
@@ -321,7 +321,7 @@ comment.text <- paste("# Hello! welcome to your data! ","Overload height: ",
                       "S/N threshold: " , SN.thresh, ". ",
                       "Minimum peak height: ", min.height, ". ",
                       "Processed on: ", Sys.time(), sep="")
-new.filename <- paste("QC_output3",filename,sep="")
+new.filename <- paste("QC_output_",filename,sep="")
 con <- file(new.filename, open="wt")
 writeLines(paste(comment.text), con)
 write.csv(final.output, con)
