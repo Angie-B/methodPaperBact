@@ -26,7 +26,7 @@ library(plotly)
 #Import data
 
 ```{r}
-mydata.overloaded <- read_csv("./QC.output.new.Bacteria_HILIC_160613_1to2_update_akb.csv")
+mydata.overloaded <- read_csv("./QC_output_Bacteria_HILIC_160718_1to100_AKB.csv")
 mydata.overloaded <-mydata.overloaded[,2:11]
 mydata <- mydata.overloaded
 glimpse(mydata)
@@ -39,15 +39,24 @@ ggplotly(p)
 ```
 
 
-#Normalize
-This is currently broken
-```{r echo=FALSE, execute=FALSE}
+#Normalize to Internal Standard
+```{r echo=FALSE}
 wArea<- mydata %>%
      select(Replicate.Name,Compound.Name,Area) %>%
-     spread(key=Replicate.Name, value=Area) 
-wArea.norm <- wArea[,-1] %>% apply(1,function(x) x/wArea[which(wArea$Compound.Name=="D-Methionine"),-1])
+     spread(key=Compound.Name, value=Area) %>%
+     as.data.frame
+wArea.norm <- wArea[,-1] %>% 
+     sapply(FUN = function(x) x/wArea[,grep("Heavy Histidine",names(wArea))]) %>%
+     as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+     gather(Compound,Area_Norm, -Replicate.Name)
+wArea.norm
+```
+
+##Normalize to optical density
+```{r}
 
 ```
+
 
 #Break Up the Names
 Also currently broken
