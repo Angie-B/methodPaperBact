@@ -150,7 +150,7 @@ ggplotly(p)
 
 ##Compare normalizations
 ```{r}
-pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0614")
+pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0615")
 pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
 
 Norm.Names <- colnames(pool.dat)
@@ -262,6 +262,29 @@ pool.stats <- pool.dat %>%
                rsd = sd/m)
 rsd.dat <- rsd.dat %>% mutate(`Heavy Proline.Norm.Area` =
                                    pool.stats$rsd)
+```
+
+##make a figure comparing the normalizations
+```{r norm.fig, echo=FALSE}
+long.rsd <- rsd.dat %>% gather(Internal.Std, rsd, -Compound.Name)
+sub <- long.rsd %>% filter(rsd < 0.5)
+ggplot(sub, aes(x=Compound.Name, y=rsd, 
+                     shape=Internal.Std, color=Internal.Std)) +
+     geom_point()  + ylim(0.5,0) +
+     scale_shape_manual(values=c(19,19,19,19,15,15,15,15,17,17,17,17)) +
+     scale_colour_manual(values=c("#e41a1c","#377eb8","#4daf4a","#984ea3",
+                                  "#e41a1c","#377eb8","#4daf4a","#984ea3",
+                                  "#e41a1c","#377eb8","#4daf4a","#984ea3",
+                                  "#ff7f00")) + 
+     theme_linedraw()+ 
+     theme(axis.text.x = element_text(angle = 90, 
+                                      hjust = 1, vjust = 0.5))
+
+```
+
+## Save out rsd data
+```{r}
+write.csv(long.rsd, file = "HILIC_1to2_RSD_NormalizationComparison_pool0615.csv")
 ```
 
 
