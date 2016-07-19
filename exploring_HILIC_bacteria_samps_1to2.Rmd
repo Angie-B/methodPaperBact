@@ -52,6 +52,46 @@ mydata <- mydata %>% mutate(Replicate.Name = Replicate.Name %>%
 mydata
 ```
 
+##Read in Internal Standard list
+```{r}
+IS.list <- read_csv("M:/Summer_2016_metabolites/Methods_Paper_Samples/HILIC_MasterList_Summer2016.csv")  
+IS.cat <- IS.list %>% filter(Group == "Internal Std") %>% 
+     select(`Compound Name`) %>% 
+     unique()
+```
+
+##Normalize to each internal Standard for which there aren't NAs
+```{r}
+wArea<- mydata %>%
+     select(Replicate.Name,Compound.Name,Area) %>%
+     spread(key=Compound.Name, value=Area) %>%
+     as.data.frame
+
+this.IS <- IS.cat[1,]
+area.norm <- wArea[,-1] %>% 
+          sapply(FUN = function(x) x/wArea[,grep(this.IS,
+                                                 names(wArea))]) %>%
+          as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+          gather(Compound,Area_Norm, -Replicate.Name)
+key <- ncol(area.norm)
+names(area.norm)[key] <- paste(this.IS,"Norm.Area",sep=".")
+
+for (i in 2:nrow(IS.cat)){
+     this.IS <- IS.cat[i,]
+     if(length(wArea[,grep(this.IS, names(wArea))])!=0){
+          this.norm <- wArea[,-1] %>% 
+               sapply(FUN = function(x) x/wArea[,grep(this.IS,
+                                                      names(wArea))]) %>%
+               as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+               gather(Compound,Area_Norm, -Replicate.Name)
+          key <- ncol(area.norm)
+          area.norm[,key+1] <- this.norm$Area_Norm
+          names(area.norm)[key+1] <- paste(this.IS,"Norm.Area",sep=".")
+          print(paste(i, "-", this.IS))
+     }
+}
+```
+
 
 #Normalize to Internal Standard
 ```{r echo=FALSE}
@@ -98,7 +138,6 @@ pool.stats <-  pool.dat %>%
 p <- ggplot(pool.stats, aes(x=rsd, text = Compound.Name)) + geom_histogram(binwidth = 0.05) + ggtitle("Relative Standard Deviation for 85 compounds in the pooled samples normalized to Heavy Histidine")
 ggplotly(p)
 ```
-
 
 ##Normalize to optical density
 Incomplete
