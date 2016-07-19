@@ -74,8 +74,8 @@ area.norm <- wArea[,-1] %>%
           as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
           gather(Compound,Area_Norm, -Replicate.Name)
 key <- ncol(area.norm)
-count <- length(which(!is.na(this.norm$Area_Norm)))/
-               length(unique(this.norm$Replicate.Name))
+count <- length(which(!is.na(area.norm$Area_Norm)))/
+               length(unique(area.norm$Replicate.Name))
 names(area.norm)[key] <- paste(this.IS,"Norm.Area",sep=".")
 print(paste(1, this.IS, count, sep="-"))
 
