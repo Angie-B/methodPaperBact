@@ -1,0 +1,117 @@
+---
+title: "Untitled"
+author: "Angie Boysen"
+date: "July 14, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(tidyr)
+require(graphics); require(grDevices)
+library(Hmisc)
+library(gtools)
+library(cowplot)
+require(RColorBrewer)
+library(xlsx)
+library(readr)
+library(plotly)
+library(stringr)
+library(GGally)
+library(dplyr)
+```
+
+##Exploring the HILIC bacteria samples
+
+#Import data
+
+```{r echo=FALSE}
+mydata.overloaded <- read_csv("./QC.output.new.Bacteria_HILIC_160613_1to2_update_akb.csv")
+mydata.overloaded <-mydata.overloaded[,2:11]
+mydata <- mydata.overloaded
+glimpse(mydata)
+```
+
+##Rename Runs
+```{r echo=FALSE}
+mydata$Replicate.Name[which(mydata$Replicate.Name == 
+                                  "160613_Blk_6-13 Blank")] <-
+     "160613_Blk_FltBlk-0613_1to2"
+
+mydata <- mydata %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("_Aq-Extracts","")) %>%
+     mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("6-","Poo-06"))
+
+mydata <- mydata %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("Aq_",""))
+mydata <- mydata %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("-gly","gly"))
+mydata
+```
+
+
+#Normalize to Internal Standard
+```{r echo=FALSE}
+wArea<- mydata %>%
+     select(Replicate.Name,Compound.Name,Area) %>%
+     spread(key=Compound.Name, value=Area) %>%
+     as.data.frame
+wArea.norm <- wArea[,-1] %>% 
+     sapply(FUN = function(x) x/wArea[,grep("Heavy Histidine",names(wArea))]) %>%
+     as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+     gather(Compound,Area_Norm, -Replicate.Name)
+wArea.norm
+```
+
+
+#Break Up the Names
+Name structure must be:
+Date_type_ID.duplicateID_dilution_injectionReplicate#
+
+```{r echo=FALSE}
+mydata_new <- wArea.norm %>% separate(Replicate.Name, 
+                                      c("runDate",
+                                        "type","ID.duplicate",
+                                        "dilution","injReplicate"),"_") %>%
+     mutate(Run.Cmpd = paste(wArea.norm$Replicate.Name,wArea.norm$Compound))
+mydata <- mydata %>% mutate(Run.Cmpd = paste(Replicate.Name, Compound.Name))
+
+dat <- full_join(mydata, mydata_new)
+dat <- dat %>% select(-Compound,-rawArea)
+glimpse(dat)
+```
+
+##Check the similarity of the pooled runs
+```{r echo=FALSE}
+pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0614")
+pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
+
+
+pool.stats <-  pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(Area_Norm, na.rm=T), 
+                sd = sd(Area_Norm, na.rm=T), rsd = sd/m)
+
+p <- ggplot(pool.stats, aes(x=rsd, text = Compound.Name)) + geom_histogram(binwidth = 0.05) + ggtitle("Relative Standard Deviation for 85 compounds in the pooled samples normalized to Heavy Histidine")
+ggplotly(p)
+```
+
+
+##Normalize to optical density
+Incomplete
+```{r echo=FALSE, eval=FALSE}
+dens <- read.xlsx("M:/Summer_2016_metabolites/Methods_Paper_Samples/Bacteria_Skyline_Samples/Cultures_Extraction_Log.xlsx", 1)  # read first sheet
+
+dens.order <- order(dens$Vial.ID)[1:16]
+
+new.df$OD <- as.numeric(as.character(dens$OD.1.10..at.Harvest.time[dens.order]))
+
+OD.Norm.df <- apply(new.df,2,function(x) x/new.df[,"OD"])
+```
+
+
+
+
