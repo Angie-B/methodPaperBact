@@ -50,14 +50,61 @@ mydata
 
 
 # Here's an interactive plot
-```{r}
+```{r eval=FALSE}
 p <- ggplot(mydata, aes(x=Retention.Time, y=Area, colour = Compound.Name)) + geom_point(aes(text = paste(Replicate.Name)), alpha = 0.4) + scale_y_log10()
 ggplotly(p)
 ```
 
 
+##Read in Internal Standard list
+```{r}
+IS.list <- read_csv("M:/Summer_2016_metabolites/Methods_Paper_Samples/HILIC_MasterList_Summer2016.csv")  
+IS.cat <- IS.list %>% filter(Group == "Internal Std") %>% 
+     select(`Compound Name`) %>% 
+     unique()
+```
+
+
+##Normalize to each internal Standard for which there aren't NAs
+```{r}
+wArea<- mydata %>%
+     select(Replicate.Name,Compound.Name,Area) %>%
+     spread(key=Compound.Name, value=Area) %>%
+     as.data.frame
+
+this.IS <- IS.cat[1,]
+area.norm <- wArea[,-1] %>% 
+     sapply(FUN = function(x) x/wArea[,grep(this.IS,
+                                            names(wArea))]) %>%
+     as_data_frame %>% 
+     mutate(Replicate.Name = wArea$Replicate.Name) %>%
+     gather(Compound,Area_Norm, -Replicate.Name)
+key <- ncol(area.norm)
+count <- length(which(!is.na(area.norm$Area_Norm)))/
+               length(unique(area.norm$Replicate.Name))
+names(area.norm)[key] <- paste(this.IS,"Norm.Area",sep=".")
+print(paste(1, this.IS, count, sep="-"))
+
+for (i in 2:nrow(IS.cat)){
+     this.IS <- IS.cat[i,]
+     if(length(wArea[,grep(this.IS, names(wArea))])!=0){
+          this.norm <- wArea[,-1] %>% 
+               sapply(FUN = function(x) x/wArea[,grep(this.IS,
+                                                      names(wArea))]) %>%
+               as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+               gather(Compound,Area_Norm, -Replicate.Name)
+          key <- ncol(area.norm)
+          area.norm[,key+1] <- this.norm$Area_Norm
+          names(area.norm)[key+1] <- paste(this.IS,"Norm.Area",sep=".")
+          count <- length(which(!is.na(this.norm$Area_Norm)))/
+               length(unique(this.norm$Replicate.Name))
+          print(paste(i, this.IS, count, sep="-"))
+     }
+}
+```
+
 #Normalize to Internal Standard
-```{r echo=FALSE}
+```{r echo=FALSE, eval=FALSE}
 wArea<- mydata %>%
      select(Replicate.Name,Compound.Name,Area) %>%
      spread(key=Compound.Name, value=Area) %>%
@@ -75,11 +122,12 @@ Name structure must be:
 Date_type_ID.duplicateID_dilution_injectionReplicate#
 
 ```{r echo=FALSE}
-mydata_new <- wArea.norm %>% separate(Replicate.Name, 
+mydata_new <- area.norm %>% separate(Replicate.Name, 
                                       c("runDate",
                                         "type","ID.duplicate",
                                         "dilution","injReplicate"),"_") %>%
-     mutate(Run.Cmpd = paste(wArea.norm$Replicate.Name,wArea.norm$Compound))
+     mutate(Run.Cmpd = 
+                 paste(area.norm$Replicate.Name,area.norm$Compound))
 mydata <- mydata %>% mutate(Run.Cmpd = paste(Replicate.Name, Compound.Name))
 
 dat <- full_join(mydata, mydata_new)
@@ -91,6 +139,10 @@ glimpse(dat)
 ```{r echo=FALSE}
 pool.dat <- dat %>% filter(type == "Poo")
 pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
+
+
+Norm.Names <- colnames(pool.dat)
+Norm.Names
 
 pool.stats <-  pool.dat %>%
      group_by(Compound.Name) %>%
@@ -114,6 +166,112 @@ p4<- ggplot(wide.pool.dat, aes(x=`1`, xend=`2`,
      ylab("Pooled replicate 3") + 
      ggtitle("Replicate injections of the pooled sample")
 ggplotly(p4)
+```
+
+##Compare normalizations
+```{r}
+pool.dat <- dat %>% filter(type == "Poo")
+pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
+
+sums <- pool.dat %>% select(Replicate.Name,Compound.Name,16:34) %>%
+     gather(IS.Compound, NormArea, -Replicate.Name, -Compound.Name) %>%
+     group_by(IS.Compound) %>% summarize(sums=sum(NormArea, na.rm=T))
+Norm.Names <- sums %>% filter(sums > 0) %>% select(IS.Compound)
+Norm.Names
+
+##Initial normalization
+##13C Acetyl CoA.Norm.Area
+pool.stats <-  pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C Acetyl CoA.Norm.Area`, na.rm=T), 
+                sd = sd(`13C Acetyl CoA.Norm.Area`, na.rm=T), rsd = sd/m)
+rsd.dat <- pool.stats %>% select(Compound.Name) %>%
+     mutate(`13C Acetyl CoA.Norm.Area` = pool.stats$rsd)
+
+##13C-Isethionic Acid.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C-Isethionic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`13C-Isethionic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`13C-Isethionic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+##13C-Sulfoacetic Acid.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C-Sulfoacetic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`13C-Sulfoacetic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`13C-Sulfoacetic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+
+##`13C-Sulfolactic Acid.Norm.Area`
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C-Sulfolactic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`13C-Sulfolactic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`13C-Sulfolactic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+
+##Heavy Histidine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Heavy Histidine.Norm.Area`, na.rm=T), 
+               sd = sd(`Heavy Histidine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Heavy Histidine.Norm.Area` =
+                                   pool.stats$rsd)
+
+##Heavy Isoleucine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Heavy Isoleucine.Norm.Area`, na.rm=T), 
+               sd = sd(`Heavy Isoleucine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Heavy Isoleucine.Norm.Area` =
+                                   pool.stats$rsd)
+
+##Heavy Proline.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Heavy Proline.Norm.Area`, na.rm=T), 
+               sd = sd(`Heavy Proline.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Heavy Proline.Norm.Area` =
+                                   pool.stats$rsd)
+
+##Heavy Threonine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Heavy Threonine.Norm.Area`, na.rm=T), 
+               sd = sd(`Heavy Threonine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Heavy Threonine.Norm.Area` =
+                                   pool.stats$rsd)
+```
+
+
+##make a figure comparing the normalizations
+```{r norm.fig, echo=FALSE}
+long.rsd <- rsd.dat %>% gather(Internal.Std, rsd, -Compound.Name)
+sub <- long.rsd %>% filter(rsd < 0.99)
+ggplot(sub, aes(x=Compound.Name, y=rsd, 
+                shape=Internal.Std, color=Internal.Std)) +
+     geom_point()  + ylim(0.5,0) +
+     scale_shape_manual(values=c(19,19,19,17,17,17,17)) +
+     scale_colour_manual(values=c("#e41a1c","#377eb8","#4daf4a",
+                                  "#377eb8","#4daf4a","#984ea3",
+                                  "#ff7f00")) + 
+     theme_linedraw()+ 
+     theme(axis.text.x = element_text(angle = 90, 
+                                      hjust = 1, vjust = 0.5))
+
+```
+
+## Save out rsd data
+```{r}
+write.csv(long.rsd, file = "HILIC_1to100_RSD_NormalizationComparison_pool0613.csv")
 ```
 
 
