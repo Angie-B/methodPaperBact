@@ -232,23 +232,7 @@ pool.stats <- pool.dat %>%
 rsd.dat <- rsd.dat %>% mutate(`Heavy Isoleucine.Norm.Area` =
                                    pool.stats$rsd)
 
-##Heavy Proline.Norm.Area
-pool.stats <- pool.dat %>%
-     group_by(Compound.Name) %>%
-     summarise(m = mean(`Heavy Proline.Norm.Area`, na.rm=T), 
-               sd = sd(`Heavy Proline.Norm.Area`, na.rm=T), 
-               rsd = sd/m)
-rsd.dat <- rsd.dat %>% mutate(`Heavy Proline.Norm.Area` =
-                                   pool.stats$rsd)
 
-##Heavy Threonine.Norm.Area
-pool.stats <- pool.dat %>%
-     group_by(Compound.Name) %>%
-     summarise(m = mean(`Heavy Threonine.Norm.Area`, na.rm=T), 
-               sd = sd(`Heavy Threonine.Norm.Area`, na.rm=T), 
-               rsd = sd/m)
-rsd.dat <- rsd.dat %>% mutate(`Heavy Threonine.Norm.Area` =
-                                   pool.stats$rsd)
 ```
 
 
@@ -272,6 +256,9 @@ ggplot(sub, aes(x=Compound.Name, y=rsd,
 ## Save out rsd data
 ```{r}
 write.csv(long.rsd, file = "HILIC_1to100_RSD_NormalizationComparison_pool0613.csv")
+
+write.csv(dat, file = "HILIC_1to100_data_NormalizationComparison.csv")
+
 ```
 
 

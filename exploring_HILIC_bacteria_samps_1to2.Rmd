@@ -28,7 +28,7 @@ library(dplyr)
 #Import data
 
 ```{r echo=FALSE}
-mydata.overloaded <- read_csv("./QC.output.new.Bacteria_HILIC_160613_1to2_update_akb.csv")
+mydata.overloaded <- read_csv("./QC.output.new.Bacteria_HILIC_160613_1to2_update_13cacetylcoa_akb.csv")
 mydata.overloaded <-mydata.overloaded[,2:11]
 mydata <- mydata.overloaded
 glimpse(mydata)
@@ -58,6 +58,9 @@ IS.list <- read_csv("M:/Summer_2016_metabolites/Methods_Paper_Samples/HILIC_Mast
 IS.cat <- IS.list %>% filter(Group == "Internal Std") %>% 
      select(`Compound Name`) %>% 
      unique()
+
+IS.cat  <- IS.cat[c(1:9,13,14),]
+
 ```
 
 ##Normalize to each internal Standard for which there aren't NAs
@@ -131,7 +134,7 @@ glimpse(dat)
 
 ##Check the similarity of the pooled runs
 ```{r echo=FALSE}
-pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0614")
+pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0615")
 pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
 
 Norm.Names <- colnames(pool.dat)
@@ -150,7 +153,7 @@ ggplotly(p)
 
 ##Compare normalizations
 ```{r}
-pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0615")
+pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0614")
 pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
 
 Norm.Names <- colnames(pool.dat)
@@ -227,14 +230,6 @@ pool.stats <- pool.dat %>%
 rsd.dat <- rsd.dat %>% mutate(`Heavy Alanine.Norm.Area` =
                                    pool.stats$rsd)
 
-##Heavy Arginine.Norm.Area
-pool.stats <- pool.dat %>%
-     group_by(Compound.Name) %>%
-     summarise(m = mean(`Heavy Arginine.Norm.Area`, na.rm=T), 
-               sd = sd(`Heavy Arginine.Norm.Area`, na.rm=T), 
-               rsd = sd/m)
-rsd.dat <- rsd.dat %>% mutate(`Heavy Arginine.Norm.Area` =
-                                   pool.stats$rsd)
 
 ##Heavy Histidine.Norm.Area
 pool.stats <- pool.dat %>%
@@ -254,14 +249,6 @@ pool.stats <- pool.dat %>%
 rsd.dat <- rsd.dat %>% mutate(`Heavy Isoleucine.Norm.Area` =
                                    pool.stats$rsd)
 
-##Heavy Proline.Norm.Area
-pool.stats <- pool.dat %>%
-     group_by(Compound.Name) %>%
-     summarise(m = mean(`Heavy Proline.Norm.Area`, na.rm=T), 
-               sd = sd(`Heavy Proline.Norm.Area`, na.rm=T), 
-               rsd = sd/m)
-rsd.dat <- rsd.dat %>% mutate(`Heavy Proline.Norm.Area` =
-                                   pool.stats$rsd)
 ```
 
 ##make a figure comparing the normalizations
@@ -271,11 +258,10 @@ sub <- long.rsd %>% filter(rsd < 0.5)
 ggplot(sub, aes(x=Compound.Name, y=rsd, 
                      shape=Internal.Std, color=Internal.Std)) +
      geom_point()  + ylim(0.5,0) +
-     scale_shape_manual(values=c(19,19,19,19,15,15,15,15,17,17,17,17)) +
-     scale_colour_manual(values=c("#e41a1c","#377eb8","#4daf4a","#984ea3",
-                                  "#e41a1c","#377eb8","#4daf4a","#984ea3",
-                                  "#e41a1c","#377eb8","#4daf4a","#984ea3",
-                                  "#ff7f00")) + 
+     scale_shape_manual(values=c(19,19,19,15,15,15,17,17,17,17)) +
+     scale_colour_manual(values=c("#e41a1c","#984ea3","#4daf4a",
+                                  "#e41a1c","#377eb8","#4daf4a",
+                                  "#e41a1c","#377eb8","#4daf4a","#984ea3")) + 
      theme_linedraw()+ 
      theme(axis.text.x = element_text(angle = 90, 
                                       hjust = 1, vjust = 0.5))
@@ -284,7 +270,9 @@ ggplot(sub, aes(x=Compound.Name, y=rsd,
 
 ## Save out rsd data
 ```{r}
-write.csv(long.rsd, file = "HILIC_1to2_RSD_NormalizationComparison_pool0615.csv")
+write.csv(long.rsd, file = "HILIC_1to2_RSD_NormalizationComparison_pool0614.csv")
+
+write.csv(dat, file = "HILIC_1to2_data_NormalizationComparison.csv")
 ```
 
 
