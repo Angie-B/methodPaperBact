@@ -1,0 +1,290 @@
+---
+title: "Untitled"
+author: "Angie Boysen"
+date: "July 14, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(tidyr)
+require(graphics); require(grDevices)
+library(Hmisc)
+library(gtools)
+library(cowplot)
+require(RColorBrewer)
+library(xlsx)
+library(readr)
+library(plotly)
+library(stringr)
+library(GGally)
+library(dplyr)
+```
+
+##Exploring the HILIC bacteria samples
+
+#Import data
+
+```{r echo=FALSE}
+mydata.overloaded <- read_csv("M:/Summer_2016_metabolites/Methods_Paper_Samples/Eddy_Skyline_Samples/Skyline_finished_integrations/QCd_Eddy_HILIC_poo_krh.csv",comment = "#")
+mydata.overloaded <-mydata.overloaded[,2:10]
+mydata <- mydata.overloaded
+glimpse(mydata)
+```
+
+##Rename Runs
+```{r echo=FALSE}
+mydata <- mydata %>% mutate(Replicate.Name = Replicate.Name %>%
+                                str_replace("_Aq Extracts",""))
+```
+
+##Read in Internal Standard list
+```{r}
+IS.list <- read_csv("M:/Summer_2016_metabolites/Methods_Paper_Samples/HILIC_MasterList_Summer2016.csv")  
+IS.cat <- IS.list %>% filter(Group == "Internal Std") %>% 
+     select(`Compound Name`) %>% 
+     unique()
+
+IS.cat  <- IS.cat[c(1:9,13,14),]
+
+```
+
+##Normalize to each internal Standard for which there aren't NAs
+```{r}
+wArea<- mydata %>%
+     select(Replicate.Name,Compound.Name,Area) %>%
+     spread(key=Compound.Name, value=Area) %>%
+     as.data.frame
+
+this.IS <- IS.cat[1,]
+area.norm <- wArea[,-1] %>% 
+          sapply(FUN = function(x) x/wArea[,grep(this.IS,
+                                                 names(wArea))]) %>%
+          as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+          gather(Compound,Area_Norm, -Replicate.Name)
+key <- ncol(area.norm)
+count <- length(which(!is.na(area.norm$Area_Norm)))/
+               length(unique(area.norm$Replicate.Name))
+names(area.norm)[key] <- paste(this.IS,"Norm.Area",sep=".")
+print(paste(1, this.IS, count, sep="-"))
+
+for (i in 2:nrow(IS.cat)){
+     this.IS <- IS.cat[i,]
+     if(length(wArea[,grep(this.IS, names(wArea))])!=0){
+          this.norm <- wArea[,-1] %>% 
+               sapply(FUN = function(x) x/wArea[,grep(this.IS,
+                                                      names(wArea))]) %>%
+               as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+               gather(Compound,Area_Norm, -Replicate.Name)
+          key <- ncol(area.norm)
+          area.norm[,key+1] <- this.norm$Area_Norm
+          names(area.norm)[key+1] <- paste(this.IS,"Norm.Area",sep=".")
+          count <- length(which(!is.na(this.norm$Area_Norm)))/
+               length(unique(this.norm$Replicate.Name))
+          print(paste(i, this.IS, count, sep="-"))
+     }
+}
+```
+
+
+#Normalize to Internal Standard
+```{r echo=FALSE, eval=FALSE}
+wArea<- mydata %>%
+     select(Replicate.Name,Compound.Name,Area) %>%
+     spread(key=Compound.Name, value=Area) %>%
+     as.data.frame
+wArea.norm <- wArea[,-1] %>% 
+     sapply(FUN = function(x) x/wArea[,grep("Heavy Histidine",names(wArea))]) %>%
+     as_data_frame %>% mutate(Replicate.Name = wArea$Replicate.Name) %>%
+     gather(Compound,Area_Norm, -Replicate.Name)
+wArea.norm
+```
+
+
+#Break Up the Names
+Name structure must be:
+Date_type_ID.duplicateID_dilution_injectionReplicate#
+
+```{r echo=FALSE}
+mydata_new <- area.norm %>% separate(Replicate.Name, 
+                                      c("runDate",
+                                        "type","extr.date",
+                                        "injReplicate"),"_") %>%
+     mutate(Run.Cmpd = paste(area.norm$Replicate.Name,area.norm$Compound))
+mydata <- mydata %>% mutate(Run.Cmpd = paste(Replicate.Name, Compound.Name))
+
+dat <- full_join(mydata, mydata_new)
+dat <- dat %>% select(-Compound)
+glimpse(dat)
+```
+
+##Check the similarity of the pooled runs
+```{r echo=FALSE}
+pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0615")
+pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
+
+Norm.Names <- colnames(pool.dat)
+Norm.Names
+
+pool.stats <-  pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C Acetyl CoA.Norm.Area`, na.rm=T), 
+                sd = sd(`13C Acetyl CoA.Norm.Area`, na.rm=T), rsd = sd/m)
+rsd.dat <- pool.stats %>% select(Compound.Name,rsd) %>%
+     mutate(`13C Acetyl CoA.Norm.Area` = rsd)
+
+p <- ggplot(pool.stats, aes(x=rsd, text = Compound.Name)) + geom_histogram(binwidth = 0.05) + ggtitle("Relative Standard Deviation for 85 compounds in the pooled samples normalized to ...")
+ggplotly(p)
+```
+
+##Compare normalizations
+```{r}
+pool.dat <- dat %>% filter(type == "Poo")
+pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
+
+Norm.Names <- colnames(pool.dat)
+Norm.Names
+
+##Initial normalization
+##13C Acetyl CoA.Norm.Area
+pool.stats <-  pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C Acetyl CoA.Norm.Area`, na.rm=T), 
+                sd = sd(`13C Acetyl CoA.Norm.Area`, na.rm=T), rsd = sd/m)
+rsd.dat <- pool.stats %>% select(Compound.Name) %>%
+     mutate(`13C Acetyl CoA.Norm.Area` = pool.stats$rsd)
+
+##13C-Isethionic Acid.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C-Isethionic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`13C-Isethionic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`13C-Isethionic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+##13C-Sulfoacetic Acid.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C-Sulfoacetic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`13C-Sulfoacetic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`13C-Sulfoacetic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+
+##`13C-Sulfolactic Acid.Norm.Area`
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`13C-Sulfolactic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`13C-Sulfolactic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`13C-Sulfolactic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+
+##d3-Cysteic Acid.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`d3-Cysteic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`d3-Cysteic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`d3-Cysteic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+
+##d4 Succinic Acid.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`d4 Succinic Acid.Norm.Area`, na.rm=T), 
+               sd = sd(`d4 Succinic Acid.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`d4 Succinic Acid.Norm.Area` =
+                                   pool.stats$rsd)
+
+#d4 Taurine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`d4 Taurine.Norm.Area`, na.rm=T), 
+               sd = sd(`d4 Taurine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`d4 Taurine.Norm.Area` =
+                                   pool.stats$rsd)
+
+##D-Methionine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`D-Methionine.Norm.Area`, na.rm=T), 
+               sd = sd(`D-Methionine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`D-Methionine.Norm.Area` =
+                                   pool.stats$rsd)
+
+##Heavy Alanine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Heavy Alanine.Norm.Area`, na.rm=T), 
+               sd = sd(`Heavy Alanine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Heavy Alanine.Norm.Area` =
+                                   pool.stats$rsd)
+
+
+##Heavy Histidine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Heavy Histidine.Norm.Area`, na.rm=T), 
+               sd = sd(`Heavy Histidine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Heavy Histidine.Norm.Area` =
+                                   pool.stats$rsd)
+
+##Heavy Isoleucine.Norm.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Heavy Isoleucine.Norm.Area`, na.rm=T), 
+               sd = sd(`Heavy Isoleucine.Norm.Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Heavy Isoleucine.Norm.Area` =
+                                   pool.stats$rsd)
+
+```
+
+##make a figure comparing the normalizations
+```{r norm.fig, echo=FALSE}
+long.rsd <- rsd.dat %>% gather(Internal.Std, rsd, -Compound.Name)
+sub <- long.rsd %>% filter(rsd < 0.5)
+ggplot(sub, aes(x=Compound.Name, y=rsd, 
+                     shape=Internal.Std, color=Internal.Std)) +
+     geom_point()  + ylim(0.5,0) +
+     scale_shape_manual(values=c(19,19,19,19,15,15,15,15,17,17,17)) +
+     scale_colour_manual(values=c("#e41a1c","#377eb8","#4daf4a","#984ea3",
+                                  "#e41a1c","#377eb8","#4daf4a","#984ea3",
+                                  "#e41a1c","#377eb8","#4daf4a")) + 
+     theme_linedraw()+ 
+     theme(axis.text.x = element_text(angle = 90, 
+                                      hjust = 1, vjust = 0.5))
+
+```
+
+## Save out rsd data
+```{r}
+write.csv(long.rsd, file = "HILIC_1to2_RSD_NormalizationComparison_pool0614.csv")
+
+write.csv(dat, file = "HILIC_1to2_data_NormalizationComparison.csv")
+```
+
+
+##Normalize to optical density
+Incomplete
+```{r echo=FALSE, eval=FALSE}
+dens <- read.xlsx("M:/Summer_2016_metabolites/Methods_Paper_Samples/Bacteria_Skyline_Samples/Cultures_Extraction_Log.xlsx", 1)  # read first sheet
+
+dens.order <- order(dens$Vial.ID)[1:16]
+
+new.df$OD <- as.numeric(as.character(dens$OD.1.10..at.Harvest.time[dens.order]))
+
+OD.Norm.df <- apply(new.df,2,function(x) x/new.df[,"OD"])
+```
+
+
+
+
