@@ -122,7 +122,7 @@ glimpse(dat)
 
 ##Check the similarity of the pooled runs
 ```{r echo=FALSE}
-pool.dat <- dat %>% filter(type == "Poo") %>% filter(ID.duplicate == "Poo-0615")
+pool.dat <- dat %>% filter(type == "Poo")
 pool.dat <- pool.dat[-(grep("overload",x=pool.dat$Notes)),]
 
 Norm.Names <- colnames(pool.dat)
@@ -246,7 +246,18 @@ pool.stats <- pool.dat %>%
 rsd.dat <- rsd.dat %>% mutate(`Heavy Isoleucine.Norm.Area` =
                                    pool.stats$rsd)
 
+
+##Raw.Area
+pool.stats <- pool.dat %>%
+     group_by(Compound.Name) %>%
+     summarise(m = mean(`Area`, na.rm=T), 
+               sd = sd(`Area`, na.rm=T), 
+               rsd = sd/m)
+rsd.dat <- rsd.dat %>% mutate(`Raw.Area` =
+                                   pool.stats$rsd)
 ```
+
+
 
 ##make a figure comparing the normalizations
 ```{r norm.fig, echo=FALSE}
@@ -267,24 +278,32 @@ ggplot(sub, aes(x=Compound.Name, y=rsd,
 
 ## Save out rsd data
 ```{r}
-write.csv(long.rsd, file = "HILIC_1to2_RSD_NormalizationComparison_pool0614.csv")
+write.csv(long.rsd, file = "HILIC_RSD_NormalizationComparison_EddyPool.csv")
 
-write.csv(dat, file = "HILIC_1to2_data_NormalizationComparison.csv")
+write.csv(dat, file = "HILIC_eddy_data_NormalizationComparison.csv")
+```
+
+##Cleanup RSD data and add a minimizing column 
+#==> dynamic model of normalization
+```{r}
+rsd.clean <- rsd.dat %>% filter(!is.na(Raw.Area)) %>% 
+     gather(Norm, RSD, -Compound.Name) 
+Dynamic.min <- rsd.clean %>% group_by(Compound.Name) %>% 
+     summarize(Dynamic.Model = min(RSD), 
+               Picked.IS = unique(rsd.clean$Norm)[which.min(RSD)])
+rsd.Wide <- rsd.clean %>% spread(Norm, RSD)
+rsd.total <- full_join(rsd.Wide,Dynamic.min)
+rsd.total <- rsd.total %>% filter(Dynamic.Model != 0)
+
+rsd.forPlot <- rsd.total %>% select(-Picked.IS) %>%
+     gather(Norm, RSD, -Compound.Name)
 ```
 
 
-##Normalize to optical density
-Incomplete
-```{r echo=FALSE, eval=FALSE}
-dens <- read.xlsx("M:/Summer_2016_metabolites/Methods_Paper_Samples/Bacteria_Skyline_Samples/Cultures_Extraction_Log.xlsx", 1)  # read first sheet
-
-dens.order <- order(dens$Vial.ID)[1:16]
-
-new.df$OD <- as.numeric(as.character(dens$OD.1.10..at.Harvest.time[dens.order]))
-
-OD.Norm.df <- apply(new.df,2,function(x) x/new.df[,"OD"])
+##Plot the normalizations
+```{r}
+ggplot(rsd.forPlot, aes(x=Norm, y=RSD)) + geom_boxplot() +
+     theme(axis.text.x = element_text(angle = 90, 
+                                      hjust = 1, vjust = 0.5))
 ```
-
-
-
 
